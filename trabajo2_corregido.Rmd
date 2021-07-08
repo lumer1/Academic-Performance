@@ -1,0 +1,963 @@
+---
+title: "TRABAJO PRÁCTICO 2"
+author: "NORA HAFIDI y LUCÍA INÉS MERLO"
+date: "31/5/2020"
+output:
+  html_document: default
+  word_document: default
+---
+# ÍNDICE 
+
+1. Introducción
+
+2. Descripción de los datos
+
+3. Preprocesado
+
+   3.1. Ausentes
+   
+   3.2. Atípicos
+   
+   3.3. Normalización
+   
+   3.4. Preparación de los datos
+   
+4. PCA
+
+   4.1. Introducción al método
+   
+   4.2. Objetivos
+   
+   4.3. Aplicación del método
+   
+        4.3.1. Cálculo de las componentes
+        
+        4.3.2. Residuos
+        
+        4.3.3. T2
+        
+        4.3.4. Loading Plot
+        
+        4.3.5. Score Plot
+        
+  4.4. Discusión de los resultados
+  
+5. Clustering
+
+   5.1. Introducción al Clustering
+   
+   5.2. Objetivos
+   
+   5.3. Elección de medida
+   
+   5.4. Tendencia de los datos
+   
+   5.5. Número de clusters y método escogido
+   
+   5.6. K-medoides
+   
+   5.7. Test de Independencia
+   
+   5.8. Gráficos de contribución
+   
+   5.9. Discusión de resultados
+   
+6. PLS-DA
+
+   6.1. Introducción al PLS-DA
+   
+   6.2. Objetivos
+   
+   6.3. Aplicación del método
+   
+        6.3.1. Preprocesado
+        
+        6.3.2. Datos entrenamiento y datos test
+        
+        6.3.3. OPLS
+        
+        6.3.4. Validación del modelo
+        
+        6.3.5. Matriz de confusión
+        
+        6.3.6. Biplot con zoom
+        
+   6.4. Predicción y validación de errores
+   
+   6.5. Discusión de resultados
+   
+7. Conclusiones
+
+   7.1. Comparativa de los métodos aplicados
+   
+   7.2. Discusión de los métodos no aplicados
+   
+Anexos
+
+   Anexo 1: Preprocesado de datos
+   
+   Anexo 2: Clustering
+   
+   Anexo 3: PLS-AD
+   
+   
+   
+# 1.Introducción al tema #
+
+El rendimiento académico despierta mucho interés en un gran volumen de personas a lo largo del tiempo. Ya sea para mejorar métodos de enseñanza, ver la importancia psicológica o  social de un individuo al enfrentarse al aprendizaje, definir métodos de evaluación o simplemente visualizar patrones que hagan posibles adelantos en este rubro. Sea cual sea el fin, el análisis estudiantil compone un factor primordial en numerosas investigaciones, útiles en dar respuestas a preguntas como: ¿Qué variables se ha de tener en cuenta para comparar el rendimiento de una persona respecto de otra?, ¿Es suficiente la materia definida como obligatoria para generar un buen nivel educativo o es conveniente añadir un plus?, ¿Por qué no se unifican los criterios de evaluación en todo el territorio nacional? O en el caso de que se deba evaluar distinto a cada individuo: ¿Cuáles son los factores que suponen la diferenciación entre individuos? 
+
+# 2.Descripción de los datos #
+Este trabajo utilizará una base de datos que trata los resultados académicos y características personales de 1000 estudiantes de secundaria de los EEUU. Tenemos el resultado de un examen que consta de 3 partes: matemáticas, escritura y lectura, puntuada sobre 100 cada una. Cada asignatura está contemplada en una variable, por tanto, estas tres son los atributos cuantitativos continuos de la base de datos.
+Las características personales son: el sexo de cada estudiante, la etnia (codificada con letras), tipo de alimentación que tiene cada uno, si han realizado o no un curso de preparación del examen, y por último el nivel de estudios de los padres (no tienen acabado el instituto, lo acabaron, grado superior, no acabaron la universidad, graduados universitarios o con máster) conformando de esta manera, las variables cualitativas de la base de datos. 
+
+```{r echo=FALSE,warning=FALSE}
+library(readxl)
+#datos1 = read.table("C:\\Users\\ASUS\\Desktop\\MDP I\\DATOS\\StudentsPerformance.txt")
+setwd("C:\\Users\\lucia\\OneDrive\\Escritorio\\MDP I\\Trabajo")
+#getwd()
+datos1 = read.table("StudentsPerformance.txt")
+datos2 = datos1[,-c(3,5,7,9,11,13,15)]
+datos = datos2[-1,]
+
+colnames(datos) = c('gender','race','parental level of education','lunch','test preparation course','math score', 'reading score', 'writing score')
+
+v = c(1:1000)
+rownames(datos) = v
+
+levels(datos$gender)[2] = NA
+levels(datos$gender)[1] = 'female'
+levels(datos$gender)[2] = 'male'
+levels(datos$race)[6] = NA
+levels(datos$`parental level of education`)[5] = NA
+levels(datos$lunch)[2] = NA
+levels(datos$`test preparation course`)[3] = NA
+datos$`math score`=as.integer(datos$`math score`)
+datos$`reading score`=as.integer(datos$`reading score`)
+datos$`writing score`=as.integer(datos$`writing score`)
+```
+
+Efectuamos el análisis exploratorio, para cada variable:
+```{r}
+par(mfrow = c(1,5),mar = c(15,2,3,2))
+plot(x = datos$gender,las=2, col='aquamarine')
+plot(x = datos$race,las=2, col='aquamarine')
+plot(x = datos$`parental level of education`,las=2, col='aquamarine')
+plot(x = datos$`test preparation course`,las=2, col='aquamarine')
+plot(x = datos$lunch,las=2, col='aquamarine')
+notas = datos[6:8]
+summary(notas)
+```
+
+- Género: Como se observa, para el género hay un número similar de hombres y mujeres, aunque el mayor número de estudiantes lo conforma el sexo femenino.
+- Etnia: En este caso, hay 5 grupos distintos. Debido a lo sensible que puede ser hablar sobre la etnia en un trabajo de análisis de datos y cuidando la privacidad de los estudiantes, están todas las categorías de etnia codificadas. Respecto al número de personas clasificadas en este atributo, el grupo A es el que menos frecuencia presenta, siendo una situación opuesta al grupo C y D que son las que mayor número de personas contempla. Dado este caso, suponemos que corresponden a la etnia caucásica y negra, puesto que son las más comunes en los Estados Unidos.
+Para el resto de grupos, también hay ciertas diferencias entre sí pero no tan notorias como las comentadas previamente y no tenemos constancia de cuáles pueden ser éstas.
+- Nivel educativo de los padres: Enfocándonos en este aspecto, hay seis categorías donde el nivel que predomina es el de aquellas personas graduadas universitarias, que no han culminado sus estudios de este tipo, o que han realizado un grado superior. En esta variable tampoco hay grandes diferencias entre las posibles clasificaciones, aunque hemos de matizar que el menor número de personas dentro de este atributo son aquellas que poseen un título de máster, es decir, un nivel educativo avanzado.
+- Curso de preparación para el examen: Más de 600 estudiantes no lo han efectuado, y del lado opuesto se encuentran aquellos que sí lo han completado, donde aproximadamente componen menos de la mitad de las instancias contenidas en la base de datos.
+- Tipo de alimentación: La mayoría de los estudiantes llevan una alimentación insuficiente, mientras que el número de sujetos que tienen un tipo adecuado son prácticamente un tercio de la muestra.
+
+# 3.Preprocesado #
+
+### 3.1.Ausentes ###
+```{r}
+sum(is.na(datos))
+```
+
+Como podemos ver, nuestra base de datos no presenta valores faltantes. 
+
+### 3.2.Atípicos ###
+Pasemos al estudio de posibles valores atípicos. Haremos esta comprobación mediante un gráfico de cajas y bigotes de las variables numéricas de nuestra base de datos.
+```{r}
+boxplot(datos[,6:8], col='aquamarine')
+```
+
+Se puede ver en los gráficos de cajas y bigotes que los datos atípicos no suponen una cantidad importante y, además, no sobresalen excesivamente de los bigotes del gráfico. De hecho, los datos que se encuentran fuera del percentil 95, son porque la media de la asignatura es más alta que el resto y notas que en matemáticas son atípicas, no lo son en lectura. Esto se debe a que la media para lectura es más baja. La presencia de estos no va a dificultar ni cambiar los resultados de los estudios posteriores y por lo tanto, no se eliminan de la base de datos. 
+
+### 3.3.Normalización ###
+En cuanto a la normalización de los datos, podemos ver que la media de las 3 variables es prácticamente igual habiendo una ligera diferencia entre la media de lectura y las otras dos variables. Debido a que las tres variables están en las mismas unidades y cuya distribución es prácticamente la misma, no vale la pena normalizar y perder la ligera diferencia de medias que posiblemente afecte de manera positiva a nuestro resultado. Sin embargo, habrá que centrar las variables de las notas para realizar el PCA ya que es necesario que tengan media 0, como la varianza es prácticamente la misma, esto no afectará a la hora de escoger las componentes principales. 
+
+```{r}
+notas_sin_esc = datos[6:8]
+notas = scale(datos[6:8],scale=FALSE,center=TRUE)
+datos[6:8] = notas
+```
+
+
+### 3.4.Preparación de los datos ###
+
+Para la realización tanto del PCA como del clústering, necesitamos tener todas las variables categóricas recodificadas y en formato numérico. En el trabajo se muestra la conversión de la variable género a modo de ejemplo y en el Anexo 1 se deja la recodificación de las otras variables de la base de datos: etnia, nivel educativo de los padres, alimentación y curso de preparación del examen. 
+```{r}
+datos$gender=as.character(datos$gender)
+datos$gender[datos$gender == "female"] <- "1"
+datos$gender[datos$gender == "male"] <- "0"
+datos$gender = as.numeric(datos$gender)
+```
+
+```{r echo=FALSE}
+datos$race = as.character((datos$'race'))
+datos$race[datos$race=='group A'] <- '1'
+datos$race[datos$race=='group B'] <- '2'
+datos$race[datos$race=='group C'] <- '3'
+datos$race[datos$race=='group D'] <- '4'
+datos$race[datos$race=='group E'] <- '5'
+datos$race = as.numeric(datos$race)
+
+datos$'parental level of education' = as.character((datos$'parental level of education'))
+datos$'parental level of education'[datos$'parental level of education'=='some high school'] <- '1'
+datos$'parental level of education'[datos$'parental level of education'=='high school'] <- '2'
+datos$'parental level of education'[datos$'parental level of education'=="associate's degree"] <- '3'
+datos$'parental level of education'[datos$'parental level of education'=='some college'] <- '4'
+datos$'parental level of education'[datos$'parental level of education'=="bachelor's degree"] <- '5'
+datos$'parental level of education'[datos$"parental level of education"=="master's degree"] <- '6'
+datos$`parental level of education` = as.numeric(datos$`parental level of education`)
+
+datos$lunch = as.character((datos$'lunch'))
+datos$lunch[datos$lunch=="standard"] <- '1'
+datos$lunch[datos$lunch=="free/reduced"] <- '0'
+datos$lunch = as.numeric(datos$lunch)
+
+datos$`test preparation course` = as.character((datos$`test preparation course`))
+datos$`test preparation course`[datos$`test preparation course` == "completed"] <- '1'
+datos$`test preparation course`[datos$`test preparation course` == "none"] <- '0'
+datos$`test preparation course` = as.numeric(datos$`test preparation course`)
+```
+
+# 4. PCA #
+
+### 4.1. Introducción al método ###
+El Análisis de Componentes Principales es una técnica orientada al análisis exploratorio de datos, la cual trata de describir los datos que presentan un número alto de variables correlacionadas en un número menor de componentes incorreladas, llamadas componentes principales, para visualizar mejor los datos y extraer conclusiones más concisas.
+La elección de componentes se realiza dependiendo de la varianza que explique cada PC, por lo que las componentes que se escojan serán aquellas que más varianza en los datos explique. 
+
+Para la visualización de los datos en las nuevas componentes principales, se hace uso de las proyecciones de individuos. Es decir, los puntos que grafica el PCA serán las proyecciones de los datos reales sobre los nuevos ejes, las componentes principales, cuanto mejor explicado esté un punto en esas dimensiones, más cercano al eje de coordenadas estará en las componentes principales.
+
+### 4.2. Objetivos ###
+
+Mediante la aplicación de este método haremos simplemente un análisis exploratorio de los datos y visualizar cómo es su comportamiento. Por tanto, el objetivo será:
+
+a)Obtener una primera visualización de nuestros datos
+
+
+### 4.3. Aplicación del método ###
+
+#### 4.3.1. Cálculo de las componentes ####
+Como se ha mencionado, hay que realizar un cálculo óptimo de las componentes en función de la variación que explique cada una. Se puede demostrar, que la varianza que explica cada componente es igual a su valor propio y la dirección de la componente es su vector propio asociado, provenientes de la matriz de varianzas-covarianzas de las variables originales. Por lo tanto, habrá que escoger las dos componentes cuyo valor propio sea el más alto. 
+
+```{r, cache=FALSE, results=FALSE, warning=FALSE, comment=FALSE, warning=FALSE,include=FALSE}
+library(ggplot2)
+library(FactoMineR)
+library(factoextra)
+```
+
+```{r}
+res.pca = PCA(datos, scale.unit = FALSE, graph = FALSE)
+eig.val <- get_eigenvalue(res.pca)
+eig.val#salen 8 dimensiones
+eig.val[1:3,]
+```
+
+Se muestran los valores propios ordenados por tamaño y el porcentaje de variabilidad que explica cada componente, así como el porcentaje de varianza acumulado. Los dos valores propios más altos son los que forman las dos primeras componentes, además, el porcentaje acumulado de variabilidad es del 94,8%. Es decir, las dos componentes escogidas explican el 94,8% de la variabilidad de nuestros datos.
+
+#### 4.3.2. Residuos ####
+Antes de proseguir con el análisis PCA, hemos de validar el modelo. El gráfico de errores muestra la distancia euclídea entre la proyección de un punto y el plano formado por las dos componentes principales. Es decir, mide como de alejado está el dato real del modelo que ha predicho el PCA. Todos aquellos valores que estén muy alejados no estarán bien ajustados por el modelo y se considerarán errores. La línea discontinua muestra los límites de contención del 90% de los datos en el modelo y la línea continua muestra el límite del percentil 95. 
+```{r comment=FALSE, warning=FALSE}
+library(mvdalab)
+```
+
+```{r}
+mod1 = pcaFit(datos,scale=T,ncomp=5)
+Xresids(mod1, ncomp = 2)
+```
+```{r}
+datos[115,]
+```
+
+El porcentaje de datos que hay por encima de la línea discontinua no supera el 1,5% y no hay ningún individuo que tenga una distancia euclídea anormalmente alta. El individuo con mayor distancia euclídea es el 115, que corresponde a una estudiante con un tipo de alimentación adecuada, cuyos padres poseen un título de grado, y que ha realizado el test de preparación al examen, con un resultado en matemáticas mayor que la media, pero ocurre lo contrario para lectura y escritura. A parte de esta estudiante, hay más sujetos que llaman la atención, aunque con el fin de no hacer el trabajo muy extenso, los veremos en mayor profundidad si poseen comportamientos dignos de comentar. 
+Por tanto, con los estudios que hemos hecho hasta ahora no podemos saber el porqué de que algunos datos estén mal predichos por el modelo. Al hacer el clústering, veremos la tendencia de nuestros datos y si hay algún perfil específico que tienda a sacar ciertas notas y si estos individuos se salen de este perfil. De momento, al no tener demasiados datos son la SCR alta, procedemos con el estudio del PCA sin eliminar ningún individuo. 
+
+#### 4.3.3. T2 ####
+La T2 consiste en la suma de cuadrados de los scores, mostrando la variación que hay dentro del modelo PCA. A diferencia del análisis de los residuos, la T2 se evalúa con la distancia de Mahalanobis de la proyección de cada individuo a la media. Es decir, mide a todos aquellos datos que han sido bien predichos por el modelo, pero que por algún motivo se alejan de una elipse de confianza preestablecida. Estos individuos que están muy alejados del eje de coordenadas conforman datos extremos.
+```{r}
+T2(mod1, ncomp = 2, verbose = F, conf = c(.95,.99))
+```
+
+En este caso hay dos datos que superan el límite de confianza al 99%, siendo estos los que toman valores más extremos, identificados como los individuos 16 y 60. Luego, hay una cantidad no despreciable de datos que se encuentran contenidos entre los límites de 95% y 99%, lo cual implica que sus valores son extremos, pero no destacan tanto. Aunque de estos, los más notorios son aquellos que se encuentran bastante más cerca del límite del 99%, por ejemplo, los sujetos 329, 597 y 328.
+A pesar de los datos con valores extremos comentados previamente, debido a que no hay un modelo perfecto, pensamos que este es útil para observar una posible distribución inicial de nuestros datos.
+
+#### 4.3.4. Loading plot ####
+En este apartado se podrá ver qué variables son las mejores explicadas por cada dimensión y si hay alguna que no aporta nada al modelo realizado por PCA. Además, veremos las correlaciones entre las mismas a partir de esta representación. 
+
+```{r echo=TRUE}
+fviz_pca_var(res.pca,
+             col.var = "contrib", # Coloreado por contribuciones a las PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = FALSE     # Avoid text overlapping
+)
+```
+
+A la vista del gráfico con las dos PC, deducimos que las variables que definen la primera PC son los resultados de lectura y escritura, mientras que en la segunda PC es el resultado de matemáticas, aunque también se encuentra contemplada para la primera PC. Si nos fijamos en el resto de variables, vemos que las mismas están cerca del centro del eje de coordenadas, lo que implica que no están lo suficientemente explicadas por dos PC y probablemente se necesiten un número mayor de PC para poder llegar a este objetivo o porque realmente las variables de sexo, etnia, alimentación, etc no están relacionadas entre sí y por ello el PCA no les ha dedicado ninguna componente. Habría que ver si aportan algo al modelo. 
+Respecto a la relación entre variables, es notorio que las variables de lectura y escritura están positivamente correladas, donde un aumento en el valor de una implicará el aumento en el valor de la otra, e igualmente en el sentido que una disminuya su valor. Respecto a la variable de matemáticas, aunque no es ortogonal a lectura y escritura, hecho que implicaría que están totalmente incorreladas entre sí, tampoco se encuentran extremadamente cercanas.
+Por tanto, la 1ra PC separa a los alumnos según sus notas del examen, mientras que la 2da PC separa a aquellos estudiantes que obtuvieron notas altas en el apartado de matemáticas respecto a los que obtuvieron puntuaciones más bajas en ese mismo apartado.
+Como conclusión, podemos decir que los estudiantes que poseen resultados altos en la 1ra PC tendrán buena puntuación global, mientras que aquellos sujetos con valores elevados en la 2da PC tendrán resultados altos en el apartado de matemáticas.
+
+#### 4.3.5. Score plot ####
+
+```{r echo=TRUE}
+
+fviz_pca_ind(res.pca,
+             col.ind = "contrib", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = FALSE     # Avoid text overlapping
+)
+
+
+```
+
+
+Respecto al gráfico de scores de los individuos para 2 PC hay una nube de puntos que muestra a la mayoría de los individuos sobre el centro del eje de coordenadas, lo cual implica que para cada variable ese individuo toma valores cercanos a la media. 
+De todas formas, hay una serie de datos fuera de esta nube por lo que se pueden considerar atípicos o errores. Sus coordenadas en el espacio calculado son:
+
+```{r}
+estu =unique(c(names(which(abs(res.pca$ind$coord[,1])>60)),
+               names(which(abs(res.pca$ind$coord[,2]) >50))))
+
+fviz_pca_ind(res.pca,col.ind ="contrib", gradient.cols =c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel =TRUE, geom.ind ="text", select.ind =list(name =estu))
+```
+
+
+```{r}
+res.pca$ind$coord[c(77,328,597,60),1:2]
+```
+
+Efectivamente, observamos que los individuos vistos como extremos en el gráfico de T2, son los mismos los sujetos 60,77,328 o 597. Toman valores negativos muy marcados para la primera dimensión, mientras que en la segunda dimensión el valor de su coordenada es cercano a 0, excepto para el sujeto 60. 
+Podemos deducir que estos individuos poseen notas menores que el promedio en el examen, mientras que para matemáticas poseen resultados estándar.
+
+```{r}
+res.pca$ind$coord[c(115,107,567,917,958),1:2]
+```
+
+Por otro lado, algunos individuos comentados en el gráfico de residuos también aparecen en el score plot como puntos atípicos. La diferencia respecto a los comentados anteriormente reside en que para la primera PC toman valores altos negativos, pero en la segunda PC este comportamiento es totalmente opuesto, menos para el individuo 917. Por tanto, las notas globales muestran resultados inferiores al promedio, pero para matemáticas las notas se disparan. 
+
+Sería interesante profundizar a qué se deben estos valores atípicos, y repetir el PCA sin los sujetos anómalos. Sin embargo, al no tener errores en los datos, esperaremos a realizar el clústering para ver si son individuos con características fuera de lo común.
+
+
+### 4.4. Discusión de los resultados ###
+Ya efectuado el PCA como un primer vistazo a nuestros datos, deducimos que para un número importante de estudiantes sus resultados en el examen tienden a ser promedio. Sin embargo, muchos de ellos poseen diferencias en las notas, ya sean globales o para determinada asignatura. 
+Por lo cual, es interesante detectar agrupaciones de estudiantes con características similares para posteriormente identificar las diferencias en su rendimiento.
+
+
+
+# 5. Clustering #
+```{r echo=FALSE}
+datos[6:8] = notas_sin_esc
+```
+
+#### 5.1. Introducción al Clustering ####
+Siguiendo con el análisis, aplicaremos el método clústering. El clústering es un método no supervisado cuya principal función es agrupar individuos en función de una medida de distancia o similitud predefinida de tal forma que se minimiza la distancia entre los individuos del mismo clúster y se maximiza la distancia entre los clústers o grupos. 
+
+#### 5.2. Objetivos ####
+El objetivo general de este algoritmo será discernir qué variables pueden afectar a la obtención de determinadas notas. Como Estados Unidos es un país sumamente cosmopolita, decidimos en primer lugar,
+
+a) investigar si la etnia de los estudiantes afecta o no en su rendimiento y a su vez 
+b) evaluar si el género es una variante a tener en cuenta para el mismo caso.
+
+#### 5.3. Elección de medida ####
+Dado que hay una gran variedad de posibilidades en la elección de medidas para mostrar la similitud o diferencia en los datos, hemos optado por aplicar la distancia euclídea. La distancia euclídea representa la similitud como la proximidad entre individuos mientras que valores más lejanos indican menor similitud.
+Dada esta pequeña introducción acerca de la implicación de la distancia euclídea, la misma es útil para detectar valores parecidos en un conjunto de variables, mas no patrones. Por lo cual, es la indicada para la agrupación de estudiantes en función de características similares con posibles patrones distintos.
+```{r}
+midist <- get_dist(datos[,3:8], stand = FALSE, method = "euclidean")
+```
+
+#### 5.4. Tendencia de los datos ####
+Para ver si nuestros datos tienen tendencia de clústers recurrimos al estadístico de Hopkins el cual mide su tendencia en una escala del 0 al 1, siendo el 1 su mejor valor. Además, veremos el gráfico de tendencias que representa de color magenta a aquellos individuos que están cerca y en azul los que se alejan. Normalmente, una línea de individuos azul representa el final del anterior clúster y el inicio de otro. 
+```{r}
+get_clust_tendency(data = datos[,3:8], n = 50, graph = TRUE, 
+                   gradient = list(low = "red", mid = "white", high = "blue"))
+```
+
+Podemos ver que el estadístico de Hopkins es bastante elevado por lo que hay indicios suficientes para asegurar tendencia en nuestros datos. Respecto al gráfico, este muestra que puede haber un total de 5 clústers, pero divide estos en 2 clústers más significativos. Habrá que hacer varias pruebas para ver cuál es el número de clústers que mejor se adhiere a nuestros datos. 
+
+#### 5.5. Número de clústers y método escogido ####
+Para escoger el método y el número de clústers que mejor modela nuestros datos se han hecho varias pruebas. En primer lugar, decidir que no utilizaremos los modelos jerárquicos ya que no hace falta tener en cuenta la posible jerarquía de los datos y simplemente se quieren hacer divisiones. Luego, se hicieron pruebas con 2 modelos distintos; k-means y pam dentro de modelos de partición y fuzzy clústering, y dentro de cada uno de ellos, gráficos Silhouette para 2,3,4,5,6 y 7 clústers. De esta forma, podemos ver cómo los algoritmos modelan nuestros datos y si crean dos o tres grupos con la totalidad de los datos o si hay algunos clústers con datos que no se adhieren a los grupos predominantes. Se pudo ver que, para los 3 algoritmos, los datos se modelaban bastante mejor con 2 clústers. Por último, se utilizó un algoritmo de validación, para medir cuál era el más adecuado y finalmente, se escogió el método PAM. Este proceso está detallado en el Anexo 2. 
+
+#### 5.6. k-medoides ####
+```{r}
+library(cluster)
+cluster <- pam(datos[,3:8], k = 2)
+fviz_silhouette(cluster)
+```
+
+A partir del coeficiente Silhouette junto a su correspondiente representación, observamos la calidad de asignación de los individuos a los clústers, donde el valor global del coeficiente indica la calidad de los clústers obtenidos. Para ambos conglomerados, el valor promedio de este coeficiente  ronda entre 0.42 y 0.48. Teniendo en cuenta que el coeficiente de Silhouette toma valores en el rango [-1,1] donde 1 es un indicativo de que todos los individuos se encuentran asignados en los grupos adecuados, podemos decir que los conglomerados obtenidos son de buena calidad.
+
+
+#### 5.7. Test de Independencia ####
+Para saber si el género y la etnia tienen alguna relación con los clústers o por el contrario si son independientes, efectuamos el test de independencia Chi-cuadrado. Medimos de esta forma cómo de relacionados están los datos que se le da como primer parámetro con el factor que se le da como segundo parámetro. En nuestro caso, le damos la matriz clúster como matriz de datos y el género y la etnia como factores. A partir de ahí, el test hace una comparación Chi-cuadrado y obtiene un p-valor, el cual nos dirá si el género y la etnia afectan a la tendencia de los grupos o si por lo contrario son completamente independientes.
+```{r}
+chisq.test(cluster$clustering,datos$gender)
+chisq.test(cluster$clustering,datos$race)
+```
+
+Observando de los resultados, vemos que los p-valores de ambos test de hipótesis han sido menores a 0.05, por lo cual rechazamos la hipótesis de que el género y la etnia son independientes de los clústers. Es decir, existe una relación a partir del género y la etnia de cada estudiante con su rendimiento académico.
+
+#### 5.8. Gráficos de contribución ####
+Puesto que la distribución de la importancia de las variables en cada clúster es diversa, y pueden  presentarse comportamientos distintos respecto a la cantidad y tipo de variables en un grupo a otro, efectuamos una visualización gráfica en relación a ello. De esta manera, vemos realmente el peso de cada variable en la creación de cada grupo.
+```{r echo=FALSE}
+datos$Cluster = cluster$clustering
+datos$Cluster = as.factor(datos$Cluster)
+datos$sexo = datos$gender
+datos$gender[datos$gender == "1"] <- "female"
+datos$gender[datos$gender == "0"] <- "male"
+
+datos$raza = as.character((datos$'race'))
+datos$race[datos$race=='1'] <- 'group A'
+datos$race[datos$race=='2'] <- 'group B'
+datos$race[datos$race=='3'] <- 'group C'
+datos$race[datos$race=='4'] <- 'group D'
+datos$race[datos$race=='5'] <- 'group E'
+
+datos$alimentacion = datos$`lunch`
+datos$lunch[datos$lunch=="1"] <- "standard"
+datos$lunch[datos$lunch=="0"] <- 'free/reduced'
+
+datos$curso = datos$`test preparation course`
+datos$`test preparation course`[datos$`test preparation course` == "1"] <- 'completed'
+datos$`test preparation course`[datos$`test preparation course` == "0"] <- 'none'
+
+datos$niveleducativopadres = datos$`parental level of education`
+datos$'parental level of education'[datos$'parental level of education'=='1'] <- 'some high school'
+datos$'parental level of education'[datos$'parental level of education'=='2'] <- 'high school'
+datos$'parental level of education'[datos$'parental level of education'=="3"] <- "associate's degree"
+datos$'parental level of education'[datos$'parental level of education'=='4'] <- 'some college'
+datos$'parental level of education'[datos$'parental level of education'=="5"] <- "bachelor's degree"
+datos$'parental level of education'[datos$'parental level of education'=="6"] <- "master's degree"
+
+g1 = ggplot(data = datos) +
+geom_bar(mapping = aes(x = gender, fill = Cluster), position = 'dodge') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+g2 = ggplot(data = datos) +
+geom_bar(mapping = aes(x = race, fill = Cluster), position = 'dodge')+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+g3 = ggplot(data = datos) +
+geom_bar(mapping = aes(x = `lunch`, fill = Cluster), position = 'dodge')+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+g4 = ggplot(data = datos) +
+geom_bar(mapping = aes(x = `test preparation course`, fill = Cluster), position = 'dodge')+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+g5 = ggplot(data = datos) +
+geom_bar(mapping = aes(x = `parental level of education`, fill = Cluster), position = 'dodge')+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+library(gridExtra)  
+grid.arrange(g1, g2, g3, g4, g5, nrow = 2)
+```
+
+Es notorio que en el clúster 1 predominan los individuos de sexo femenino, pertenecientes a los grupos C, D y E de la etnia. Por otro lado, en el clúster 2, hay mayor cantidad de individuos masculinos pertenecientes a los grupos de etnia A y B. Vemos de esta forma, los resultados comentados anteriormente para los test de Chi-cuadrado, siendo evidente para estas variables, las características de los individuos en cada grupo.
+
+Siguiendo con el análisis, en el conglomerado 1 hay mayor presencia de individuos con buena alimentación, el nivel educativo de los padres es elevado, y en el curso de preparación del examen aunque hay un número importante de personas que no lo completaron, se puede ver que los individuos que sí lo han hecho, están en su mayoría presentes en este grupo.
+
+Por otro lado, en el conglomerado 2 los estudiantes no cuentan con tan buena alimentación, el nivel educativo de los padres se mantiene en nivel de secundario, donde es minoritaria la formación de niveles superiores para los mismos, y en el curso de preparación del examen, las personas pertenecientes a este grupo que lo completaron suponen la minoría, predominando los sujetos que no lo han cursado.
+
+Ya vistas algunas generalidades de ambos clústers para todas las variables, podemos suponer una fuerte influencia de todas las variables en los grupos de estudiantes analizados. 
+
+```{r}
+par(mfrow = c(1,3),mar = c(12,5,3,2))
+boxplot(datos$`math score` ~ cluster$clustering, data = datos, col='aquamarine',ylab='Notas de matemáticas',xlab='Clusters')
+boxplot(datos$`reading score` ~ cluster$clustering, data = datos, col='aquamarine',ylab='Notas de lectura',xlab='Clusters')
+boxplot(datos$`writing score` ~ cluster$clustering, data = datos, col='aquamarine',ylab='Notas de escritura',xlab='Clusters')
+```
+
+Enfocándonos en los boxplot para cada resultado de cada asignatura en el clúster 1, vemos que para las notas de los exámenes hay una media mucho más elevada respecto al clúster 2, donde este segundo clúster posee también mayor variabilidad en los resultados. En el grupo 1 para los tres gráficos hay un dato atípico que toma el valor de cero, por lo cual puede ser que se trate del mismo individuo. 
+Por lo demás, es seguro decir que los estudiantes pertenecientes al clúster 1 sacan mejores notas en comparación al clúster 2.
+
+#### 5.9. Discusión de resultados ####
+A partir de estos resultados, junto con los anteriormente comentados para las variables cualitativas, observamos que además de presentar mejores resultados, donde el nivel educativo de los padres y la calidad de alimentación es superior en el clúster 1 que en el 2. En contraste, en el segundo grupo parece haber una calidad de vida menor que en el primero. Ello muestra que los individuos del primer grupo tienden a tener mejor posición socio-económica que los individuos del segundo grupo.
+Teniendo en cuenta que en Estados Unidos hay grandes diferencias en algunos estratos sociales, y que tanto el sexo como la etnia también influyen en los grupos, podemos deducir que los estudiantes del grupo 1 son en su mayoría chicas de etnia caucásica que viven en el domicilio familiar con buenos ingresos, donde estos individuos se pueden dedicar únicamente a los estudios. 
+Mientras que en el grupo 2, los estudiantes son en su mayoría chicos, pudiendo formar parte de grupos socialmente vulnerables (inmigrantes,refugiados, musulmanes o afrodescendientes, por ejemplo) donde los ingresos de las familias de esos estudiantes tenderían a ser inferiores por lo cual los obligaría a   compaginar trabajo y estudio, generando como consecuencia que el rendimiento educativo disminuya. 
+Finalmente, para poder obtener conclusiones más claras, sería bueno contar tanto con variables económicas de los estudiantes, como variables referidas a su contexto social para determinar a ciencia cierta qué tanto influyen en su rendimiento.
+
+# 6.PLS #
+### 6.1.Introducción al PLS-DA ###
+El PLS es un método estadístico supervisado el cual mide la variación y la relación entre los espacios X e Y, Y trata de predecir el espacio Y de los individuos en función de sus valores en el espacio X (regresores).
+Para ello, se encuentran las componentes principales que maximizan la covarianza entre el espacio X y la Y y minimizan la SCR, y posteriormente se calculan las proyecciones de ambos espacios en su correspondiente componente.
+El PLS-DA se da cuando se tiene únicamente una matriz de datos X, la cual se encuentra subdividida por cierto número de clases. Dado un espacio ficticio Y con tantas variables como clases hay en X, se puede estudiar qué variables en X son las que más poder discriminante tienen sobre cada clase o dada la información de un individuo poder clasificarlo en una u otra clase.
+Por tanto, en función de los regresores, mediante el PLS-DA, los individuos serán clasificados en función de a cuál de las categorías del espacio Y se asemejan más. 
+
+### 6.2.Objetivos ###
+En este último algoritmo, queremos estudiar una posible explicación sobre los individuos atípicos en el PCA. Dado que en el clústering se obtuvieron dos grupos, donde es posible que alguno de los individuos atípicos vistos en el PCA esté clasificado en el grupo incorrecto, el objetivo es:
+
+ 
+a) aplicando PLS-DA, veremos si realmente pertenecen al grupo formado obtenido del algoritmo de clústering o no.
+
+### 6.3.Aplicación del método ###
+#### 6.3.1.Preprocesado ####
+Debido a que en el PLS-DA se trabaja con variables numéricas habrá que hacer un proceso previo. Este se encuentra en el Anexo 3.
+```{r echo=FALSE, include=FALSE, warnings=FALSE}
+library(readxl)
+#datos1 = read.table("C:\\Users\\ASUS\\Desktop\\MDP I\\DATOS\\StudentsPerformance.txt")
+setwd("C:\\Users\\lucia\\OneDrive\\Escritorio\\MDP I\\Trabajo")
+#getwd()
+datos1 = read.table("StudentsPerformance.txt")
+datos2 = datos1[,-c(3,5,7,9,11,13,15)]
+datos = datos2[-1,]
+
+colnames(datos) = c('gender','race','parental level of education','lunch','test preparation course','math score', 'reading score', 'writing score')
+
+v = c(1:1000)
+rownames(datos) = v
+
+levels(datos$gender)[2] = NA
+levels(datos$gender)[1] = 'female'
+levels(datos$gender)[2] = 'male'
+levels(datos$race)[6] = NA
+levels(datos$`parental level of education`)[5] = NA
+levels(datos$lunch)[2] = NA
+levels(datos$`test preparation course`)[3] = NA
+datos$`math score`=as.integer(datos$`math score`)
+datos$`reading score`=as.integer(datos$`reading score`)
+datos$`writing score`=as.integer(datos$`writing score`)
+
+
+datos$gender=as.character(datos$gender)
+datos$gender[datos$gender == "female"] <- "1"
+datos$gender[datos$gender == "male"] <- "0"
+datos$gender = as.numeric(datos$gender)
+
+datos$race = as.character((datos$'race'))
+datos$race[datos$race=='group A'] <- '1'
+datos$race[datos$race=='group B'] <- '2'
+datos$race[datos$race=='group C'] <- '3'
+datos$race[datos$race=='group D'] <- '4'
+datos$race[datos$race=='group E'] <- '5'
+datos$race = as.numeric(datos$race)
+
+datos$'parental level of education' = as.character((datos$'parental level of education'))
+datos$'parental level of education'[datos$'parental level of education'=='some high school'] <- '1'
+datos$'parental level of education'[datos$'parental level of education'=='high school'] <- '2'
+datos$'parental level of education'[datos$'parental level of education'=="associate's degree"] <- '3'
+datos$'parental level of education'[datos$'parental level of education'=='some college'] <- '4'
+datos$'parental level of education'[datos$'parental level of education'=="bachelor's degree"] <- '5'
+datos$'parental level of education'[datos$"parental level of education"=="master's degree"] <- '6'
+datos$`parental level of education` = as.numeric(datos$`parental level of education`)
+
+datos$lunch = as.character((datos$'lunch'))
+datos$lunch[datos$lunch=="standard"] <- '1'
+datos$lunch[datos$lunch=="free/reduced"] <- '0'
+datos$lunch = as.numeric(datos$lunch)
+
+datos$`test preparation course` = as.character((datos$`test preparation course`))
+datos$`test preparation course`[datos$`test preparation course` == "completed"] <- '1'
+datos$`test preparation course`[datos$`test preparation course` == "none"] <- '0'
+datos$`test preparation course` = as.numeric(datos$`test preparation course`)
+datos$Cluster = cluster$clustering
+datos$Cluster[datos$Cluster == "1"] = "Cluster 1"
+datos$Cluster[datos$Cluster == "2"] = "Cluster 2"
+```
+
+```{r warnings=FALSE, include=FALSE, echo=FALSE}
+library(pls)
+library(ropls)
+```
+
+#### 6.3.2. Datos entrenamiento y datos test ####
+En nuestro caso, estamos excluyendo a los outliers de los datos, obteniendo así los que usaremos para realizar el modelo y los datos atípicos los utilizaremos posteriormente para predecir su clasificación en los clústers y ver a qué se debe su comportamiento anómalo. Estos datos atípicos se recogen en el PCA en una variable llamada estu.
+```{r warning=FALSE}
+estu = as.integer(estu)
+errores = datos[estu,]
+TrainData = datos[-estu,]
+errores_y = as.matrix(errores[9])
+errores_x = errores[-c(9)]
+
+x = TrainData[1:8]
+y = as.matrix(TrainData[9])
+```
+
+#### 6.3.3. OPLS ####
+myplsda = opls(x = x, y = y, crossvalI = nrow(x))
+```{r echo=T, include=F}
+myplsda = opls(x = x, y = y, crossvalI = nrow(x))
+```
+
+#### 6.3.4. Validación del modelo ####
+Debido a que el PLS utiliza varios patrones muy parecidos al PCA en cuanto a la obtención de las componentes, no vemos necesario volver a estudiar los gráficos de la suma de cuadrados residual y el de T de Hotelling ya que saldrán resultados muy parecidos, pero con menos individuos extremos ya que los hemos eliminado del modelo. Sin embargo, están comentados en el Anexo 3. Al igual que el gráfico del VIP (Anexo3), será algo parecido a lo obtenido en el gráfico de variables del PCA, que está comentado en el Anexo 1. En la parte de la memoria introduciremos la tabla de contingencia y algunos parámetros de medida del error para saber la bondad del modelo, como el R2 y el Q2.
+
+#### 6.3.5. Matriz de confusión ####
+```{r}
+predicciones = predict(myplsda)
+myConfMatr = table(y, predicciones); myConfMatr
+myplsda@modelDF
+```
+
+```{r warning=FALSE}
+library(caret)
+caret::confusionMatrix(myConfMatr)
+```
+
+Se puede ver que los lugares fuera de las diagonales a penas suman 19 de los 975 individuos que se han utilizado para realizar el modelo. Además, este presenta una exactitud del 98%, una especificidad del 99% y una sensibilidad del 97%. Es decir, el 98% de los individuos se han clasificado correctamente, el 99% de los individuos del clúster 1 han sido predichos en su mismo clúster y el 97% de los individuos del clúster 2 han sido clasificados en su mismo clúster. Observando los resultados acumulados del estadístico de bondad del ajuste y el de bondad de predicción, podemos ver que ambos son bastante elevados. El 44% de la variabilidad de las variables X son explicadas por el modelo y el 68% de la variabilidad de la variable dependiente es explicada por el modelo, que es lo que nos interesa en este estudio. Por otro lado, el 67% de las observaciones que no se han utilizado en el modelo han sido predichas correctamente. Podemos concluir que el modelo es adecuado. 
+
+#### 6.3.6. Biplot con zoom ####
+Debido a que las variables no quedaban muy repartidas en el gráfico conjunto y no era posible apreciar su posición, se ha hecho un zoom en el biplot de tal forma que puedan verse algunos resultados.
+```{r warning=FALSE}
+gr = data.frame(x = c(0,-0.521), y = c(0,-0.244))
+orto = data.frame(x = c(0,-0.1), y = c(0,1))
+plot(c(-1,0.1),c(-0.3,1), main='PLS-DA Score plot', ylab = 'Dimensión 2', xlab = 'Dimensión 1')
+points(myplsda@scoreMN,pch=16,col=2:3)
+text(myplsda@loadingMN, colnames(x),cex = 1)
+abline(v=0,h=0, lty=3,col='red')
+lines(gr,
+      lwd = 1,
+      lty = 1,
+      col = "blue",
+      pch = 4)
+lines(orto,
+      lwd = 1,
+      lty = 1,
+      col = "blue",
+      pch = 4)
+```
+
+Puede verse que, las notas están muy relacionadas entre sí y muy alejadas del resto. Al ser la nota de matemáticas de las variables más influyentes en el modelo (Anexo 3), se han graficado las coordenadas necesarias para poder observar qué cambios habría que realizar para que estas notas fuesen más altas. Las otras dos variables de notas se encuentran en mismo cuadrante que las notas de matemáticas por lo que si sube una de las notas, suben todas. Por otro lado, las demás variables, aunque incorreladas con las notas, como se ha visto en el PCA, aumentado su valor también harían aumentar las notas: en el paso de la educación de los padres, cuanto mayor sea, mejores notas tendrán los hijos y en el caso del curso, al realizar el test (valor 1) habrá mejores notas. 
+
+#### 6.4. Predicción y validación de los errores ####
+```{r}
+mypred2 = predict(myplsda, errores_x)
+myConfMatr = table(mypred2,errores_y); myConfMatr
+```
+
+Puede verse que el acierto del clústering que los datos anómalos en el PCA ha sido del 100% por lo que estos individuos han sido clasificados en el grupo en el que deben de estar. 
+
+### 6.5. Discusión de resultados ###
+Con la aplicación del PLS-DA buscábamos encontrar algún motivo por el cual algunos de los individuos habían sido mal ilustrados en el PCA apareciendo como anómalos. Una de nuestras primeras hipótesis fue pensar que posiblemente fuesen individuos con características de un grupo de datos, pero con alguna variable importante característica de otro grupo y por ello, el dato se había clasificado mal.
+Es decir, a la hora de hacer el clústering, un individuo que debía ser clasificado en el Cluster 1 porque presenta buenas notas en lengua y en matemáticas, y el nivel educativo de los padres es alto, pero que por la nota baja en matemáticas, el individuo se clasifique en el clúster 2. Por esto, pensamos en realizar un modelo que predijese el clúster en donde debe estar cada individuo, pero eliminando los datos mal representados en el PCA. De esta forma, el modelo no tendrá en cuenta las características de los errores para hacer sus predicciones. Luego, utilizar el modelo para predecir los errores y evaluar en qué conglomerado quedan. En este caso, todos ellos han sido clasificados en el mismo clúster en el que estaban. Por tanto, las anomalías no se deben a esto y probablemente haya que repetir el estudio completo eliminando a los datos con la SCR más alta.
+
+
+# 7.Conclusiones #
+## 7.1.Comparativa de los métodos aplicados ##
+Para este estudio hemos aplicado PCA, clustering y PLS-DA. PCA y clustering son métodos no supervisados utilizados como herramientas exploratorias de los datos ya que permiten detectar comportamientos de individuos, tendencias, comportamientos anómalos y agrupaciones. Proporcionan una vista rápida de cómo son nuestros datos, y aportan una idea de las variables más significativas dentro de las observaciones. Además, PCA y PLS-DA tienen en común una reducción de la dimensionalidad, algo útil si la base de datos cuenta con un número importante de variables y deseamos identificar aspectos fundamentales en nuestros datos tales como variables relacionadas y totalmente incorreladas.
+Finalmente, tanto clustering como PLS-DA son métodos que de una forma u otra utilizan grupos pertenecientes a los datos. El clustering detecta tendencias de conglomerado, clasificando a un conjunto heterogéneo de elementos en función de similitudes o diferencias entre ellos. Mientras que PLS-DA, que es un método supervisado, puede discriminar grupos en función de variables determinando aquellas que tienen poder discriminante en la definición de las clases. Además de discriminar, este método tiene el poder de dada la información de un nuevo individuo, clasificarlo en una u otra clase.
+Para terminar, hemos de comentar que si deseamos aplicar PLS-DA pero contamos solo con una matriz X, es interesante reducir la dimensionalidad de la misma aplicando PCA para luego estudiar una tendencia de agrupación con el algoritmo de clustering. Posteriormente, definimos en una matriz respuesta Y tantas variables dummy como clases tenemos en los datos para de esta forma, aplicar PLS-DA con el fin de discriminar las variables más importantes en la formación de grupos como clasificar individuos.
+
+## 7.2.Discusión de los métodos no aplicados ##
+AFC: Debido a que ya hemos aplicado PCA, vemos que extraeríamos información redundante aplicando el análisis factorial de correspondencias.
+
+Reglas de asociación: En este trabajo sí se podían haber aplicado reglas de asociación, pero como en el primer trabajo ya aplicamos 2 métodos y PLS era obligado, ya llegábamos a los 3 algoritmos y por la extensión máxima del trabajo no cabían.
+
+AD: Este método, al igual que las reglas de asociación podría haberse aplicado clasificando a los individuos por sexo o por el nivel educativo de los padres. O por seguir un poco la tendencia del trabajo, clasificar a los individuos por sexo y etnia. Sin embargo, por extensión, preferimos no aplicar este algoritmo y hacer el PLS-DA que hace algo muy parecido y no tendría problemas con la relación entre las notas. 
+
+PLS: En cuanto al PLS, estaba un poco fuera de lugar aplicarlo en esta base de datos ya que las respuestas han de estar relacionadas entre sí y la única opción que nos quedaba era predecir las notas de los individuos a partir de su sexo, etnia, el nivel educativo de los padres y la alimentación que llevaban, algo que no tienen demasiado sentido. 
+
+
+# ANEXOS #
+## Anexo 1: Preprocesado ##
+#### Preparación de los datos ####
+
+**Etnia**
+```{r}
+datos$race = as.character((datos$'race'))
+datos$race[datos$race=='group A'] <- '1'
+datos$race[datos$race=='group B'] <- '2'
+datos$race[datos$race=='group C'] <- '3'
+datos$race[datos$race=='group D'] <- '4'
+datos$race[datos$race=='group E'] <- '5'
+datos$race = as.numeric(datos$race)
+```
+
+**Nivel educativo de los padres**
+```{r}
+datos$'parental level of education' = as.character((datos$'parental level of education'))
+datos$'parental level of education'[datos$'parental level of education'=='some high school'] <- '1'
+datos$'parental level of education'[datos$'parental level of education'=='high school'] <- '2'
+datos$'parental level of education'[datos$'parental level of education'=="associate's degree"] <- '3'
+datos$'parental level of education'[datos$'parental level of education'=='some college'] <- '4'
+datos$'parental level of education'[datos$'parental level of education'=="bachelor's degree"] <- '5'
+datos$'parental level of education'[datos$'parental level of education'=="master's degree"] <- '6'
+datos$`parental level of education` = as.numeric(datos$`parental level of education`)
+```
+
+**Alimentación**
+```{r}
+datos$lunch = as.character((datos$'lunch'))
+datos$lunch[datos$lunch=="standard"] <- '1'
+datos$lunch[datos$lunch=="free/reduced"] <- '0'
+datos$lunch = as.numeric(datos$lunch)
+```
+
+**Curso de prepación al examen**
+```{r}
+datos$`test preparation course` = as.character((datos$`test preparation course`))
+datos$`test preparation course`[datos$`test preparation course` == "completed"] <- '1'
+datos$`test preparation course`[datos$`test preparation course` == "none"] <- '0'
+datos$`test preparation course` = as.numeric(datos$`test preparation course`)
+```
+
+
+## Anexo 2: Clustering ##
+
+### Preprocesado ###
+Para el clústering no hace falta centrar las variables y es posible que liguera diferencia de las medias ayude a establecer las posibles tendencias de los datos.
+```{r}
+datos[6:8] = notas_sin_esc
+```
+
+### Elección del número de clústers ###
+
+#### k-means ####
+```{r}
+clust12 <- kmeans(datos[,3:8], centers = 2, nstart = 10)
+mar = c(70,70,70,70)
+par(mfrow=c(3,2))
+plot(silhouette(clust12$cluster,	midist),	border=NA,	main	= "K-MEDIAS k=2", col='red')
+
+clust13 <- kmeans(datos[,3:8], centers = 3, nstart = 10)
+plot(silhouette(clust13$cluster,	midist),	border=NA,	main	
+= "K-MEDIAS k=3", col='orange')
+
+clust14 <- kmeans(datos[,3:8], centers = 4, nstart = 10)
+plot(silhouette(clust14$cluster,	midist),	border=NA,	main	
+= "K-MEDIAS k=4",col='blue')
+
+clust15 <- kmeans(datos[,3:8], centers = 5, nstart = 10)
+plot(silhouette(clust15$cluster,	midist),	border=NA,	main	
+= "K-MEDIAS k=5", col='green')
+
+clust16 <- kmeans(datos[,3:8], centers = 6, nstart = 10)
+plot(silhouette(clust16$cluster,	midist),	border=NA,	main	
+= "K-MEDIAS k=6", col='magenta')
+
+clust17 <- kmeans(datos[,3:8], centers = 7, nstart = 10)
+plot(silhouette(clust17$cluster,	midist),	border=NA,	main	
+= "K-MEDIAS k=7", col = 'purple')
+```
+
+En el k-means es un algoritmo de partición que escoge los centros de manera aleatoria y la media como medida de distancia del clúster. En sus gráficos de Silhouette puede ver que para 2 clústers los datos se distribuyen bastante bien y prácticamente no hay ningún dato que no pertenezca a alguno de los dos clústers. Para 3 clústers la situación es bastante parecida, pero con un ligero número de individuos que no encaja en ningún clúster. Mientras que en los demás gráficos se puede apreciar una notoria idea de que los clústers no han sido bien escogidos sabiendo que nuestros datos tienen una gran tendencia a agruparse y no debería haber muchos individuos fuera de los grupos. Para el algoritmo k-means se concluye que 2 clústers es los más sensato.  
+
+#### pam ####
+```{r}
+library(cluster)
+clust <- pam(datos[,3:8], k = 2)
+s1 = fviz_silhouette(clust)
+
+clust1 <- pam(datos[,3:8], k = 3)
+s2 = fviz_silhouette(clust1)
+
+clust2 <- pam(datos[,3:8], k = 4)
+s3 = fviz_silhouette(clust2)
+
+clust3 <- pam(datos[,3:8], k = 5)
+s4 = fviz_silhouette(clust3)
+
+clust4 <- pam(datos[,3:8], k = 6)
+s5 = fviz_silhouette(clust4)
+
+clust5 <- pam(datos[,3:8], k = 7)
+s6 = fviz_silhouette(clust5)
+grid.arrange(s1, s2, s3, s4, s5,s6, nrow = 3)
+```
+
+El algoritmo PAM es igual que el k-means, pero escoge la mediana como medida del cálculo de la distancia del clúster. Se puede ver que tanto para 2 como para 5 clústers la asignación es bastante adecuada, pero no demasiado adecuada para los demás grupos.  
+
+#### fuzzy clústering ####
+```{r}
+clust6 = fanny(datos[,3:8], k = 2, metric = "euclidean")
+r1 = fviz_silhouette(clust6)
+
+clust7 = fanny(datos[,3:8], k = 3, metric = "euclidean")
+r2 = fviz_silhouette(clust7)
+
+clust8 = fanny(datos[,3:8], k = 4, metric = "euclidean")
+r3 = fviz_silhouette(clust8)
+
+clust9 = fanny(datos[,3:8], k = 5, metric = "euclidean")
+r4 = fviz_silhouette(clust9)
+
+clust10 = fanny(datos[,3:8], k = 6, metric = "euclidean")
+r5 = fviz_silhouette(clust10)
+
+clust11 = fanny(datos[,3:8], k = 7, metric = "euclidean")
+r6 = fviz_silhouette(clust11)
+grid.arrange(r1, r2, r3, r4, r5,r6, nrow = 3)
+```
+
+El fuzzy clústering está fuera de los métodos de partición. En este método, los datos tienen asignado una probabilidad de pertenencia dentro de los grupos en vez de ser asignados aleatoriamente. En este último caso, pasa algo muy parecido que en el k-means; se puede ver una muy buena asignación de los clústers para 2 grupos de datos mientras que la buena asignación se va deteriorando a medida que se aumenta el número de clústers. Para el PAM, 2 clústers también es lo óptimo.
+
+
+Por lo tanto se concluye que 2 clústers es lo más adecuado para la modelización de nuestros datos.
+
+### Elección del método más adecuado ###
+```{r}
+library(clValid)
+metodos1 = c("pam","fanny","kmeans")
+validacion1 <- clValid(datos[,3:8], nClust = 2, metric = "euclidean",
+                      clMethods = metodos1,
+                      validation = c("internal", "stability"),
+                      maxitems = 1000)
+summary(validacion1)
+```
+
+Luego de aplicar los métodos de validación para los tres algoritmos, evaluamos medidas internas y de estabilidad de los mismos para decidir cuál es el mejor resultado. 
+
+Las medidas internas consisten en medidas que muestran la separación y compactación de las particiones. Concretamente, estas tres consisten en la conectividad, el coeficiente Silhouette y el índice Dunn.
+La conectividad evalúa qué grado de observaciones están ubicadas en el mismo grupo que sus vecinos más cercanos, abarcando valores de [0, +∞]  siendo lo ideal valores mínimos. Para los tres algoritmos que hemos querido validar, tenemos que la mejor conectividad la presenta el algoritmo pam seguido del fuzzy, mientras que el kmeans presenta los individuos se sus clústers bastante más alejados entre sí. 
+
+Luego, el coeficiente Silhouette es el promedio de este coeficiente para cada observación, mide el grado de confianza en la asignación de los individuos a los conglomerados. Como hemos comentado previamente, este coeficiente toma valores de [1,-1] donde debería ser maximizado. En nuestro caso, se puede ver que el mayor coeficiente lo tiene el algoritmo k-means, aunque no hay gran diferencia con lo demás algoritmos. Es decir, los tres algoritmos tienen una buena asignación de los individuos en cada clúster, siendo el k-means el del mejor valor. 
+
+Finalmente, de las medidas internas, el índice Dunn muestra la ratio de la distancia más pequeña entre observaciones de distintos grupos a la máxima distancia entre observaciones en el mismo clúster. Es decir, como de alejados están los clústers entre sí. Abarca un rango de posibles valores de [0, +∞] , donde que al igual que para el coeficiente Silhouette lo ideal es que fuese maximizado. En los resultados, se puede ver que el mejor índice de Dunn lo tiene el algoritmo pam. Aunque cabe destacar que ninguno de los tres métodos de partición presenta unos grupos lo suficientemente separados. Esto era de esperar debido a que hay muchos datos que se encuentran en el límite se los clústers en todos los algoritmos de partición realizados. Los dos clústers están prácticamente pegados. 
+
+
+
+Las medidas de estabilidad evalúan la consistencia del clústering, mostrando el resultado del algoritmo en el caso de quitar una variable, analizando si este resultado mantiene o modifica la calidad de los conglomerados en cada una de las iteraciones.
+Son cuatro las medidas de este tipo, APN (average proportion of non-overlap), AD (average distance), ADM (average distance between means) y FOM (figure of merit). 
+
+La primera que comentaremos es la APN que calcula la proporción promedio de las observaciones que no se disponen en el mismo clúster cuando se elimina alguna columna. Con valores entre [0,1], habiendo mejor estabilidad a medida que disminuye el valor del APN. Los tres resultados del pam son bastante parecidos entre sí, aunque sí es cierto que el k-menas tiene el menor valor. Se puede decir que los tres algoritmos son bastante estables en este aspecto.
+
+En segundo lugar, la medida AD presenta un rango de valores posibles de [0, +∞] , y consiste en la distancia media entre observaciones de un conglomerado con todos los datos y posteriormente con una variable menos. Cuanto menos sea el estadístico, mayor estabilidad habrá en el resultado del clústering. En este caso es el fuzzy clúster el que destaca un poco del resto. Sin embargo, al igual que en el APN, todos tienen valores muy parecidos por lo que son todos bastante estables. 
+
+El ADM mide la distancia media entre los centros de los clústers en estado natural y eliminando columna cada vez, también con resultados de [0,1] y cuanto menor valor, mejor. En este caso, los resultados distan un poco más entre los algoritmos, siendo el fuzzy el del menor valor con 1,82 y el pam el de mayor con 4,55 unidades. Entonces, se puede decir que el algoritmo fuzzy clústering ha hecho una mejor colocación de los datos teniendo en cuenta las variables de la base de datos. 
+
+Finalmente, el FOM evalúa la varianza promedio intraclúster de las observaciones vistas en la columna eliminada, tomando valores de [0,1]. En este caso, los resultados son bastante parecidos, aunque sí es cierto que el pam tiene mejor valor. 
+
+Como conclusión, teniendo en cuenta los resultados obtenidos, podemos ver que muchos estadísticos tienen valores parecidos en los tres algoritmos. Siendo el coeficiente Silhouette el más parecido. Sin embargo, la conectividad presenta notorias diferencias en los tres algoritmos siendo la mejor la del pam. Además, este algoritmo también presenta el mejor estadístico DUNN y el FOM, aunque tenga el peor valor de ADM, creemos que este es el mejor algoritmo teniendo en cuenta estas validaciones. Este será el algoritmo de clústering que mejor grupos forma en nuestros datos y con el que realizaremos el test chi2 para abordar los objetivos iniciales del estudio
+
+### Preprocesado de los gráficos de contribución ###
+#### Poner el clúster en los datos ####
+```{r}
+datos$Cluster = cluster$clustering
+datos$Cluster = as.factor(datos$Cluster)
+```
+
+#### Preprocesado de las variables ####
+Para que en los gráficos de contribución se muestre el nombre de los factores de las variables en el eje x, es conveniente retroceder en el preprocesado y dejar las variables como estaban al principio ya que no las hemos guardado. 
+
+**Sexo**
+```{r}
+datos$sexo = datos$gender
+datos$gender[datos$gender == "1"] <- "female"
+datos$gender[datos$gender == "0"] <- "male"
+```
+
+**Etnia**
+```{r}
+datos$raza = as.character((datos$'race'))
+datos$race[datos$race=='1'] <- 'group A'
+datos$race[datos$race=='2'] <- 'group B'
+datos$race[datos$race=='3'] <- 'group C'
+datos$race[datos$race=='4'] <- 'group D'
+datos$race[datos$race=='5'] <- 'group E'
+```
+
+**Alimentación**
+```{r}
+datos$alimentacion = datos$`lunch`
+datos$lunch[datos$lunch=="1"] <- "standard"
+datos$lunch[datos$lunch=="0"] <- 'free/reduced'
+```
+
+**Curso de preparación al examen**
+```{r}
+datos$curso = datos$`test preparation course`
+datos$`test preparation course`[datos$`test preparation course` == "1"] <- 'completed'
+datos$`test preparation course`[datos$`test preparation course` == "0"] <- 'none'
+
+datos$niveleducativopadres = datos$`parental level of education`
+datos$'parental level of education'[datos$'parental level of education'=='1'] <- 'some high school'
+datos$'parental level of education'[datos$'parental level of education'=='2'] <- 'high school'
+datos$'parental level of education'[datos$'parental level of education'=="3"] <- "associate's degree"
+datos$'parental level of education'[datos$'parental level of education'=='4'] <- 'some college'
+datos$'parental level of education'[datos$'parental level of education'=="5"] <- "bachelor's degree"
+datos$'parental level of education'[datos$'parental level of education'=="6"] <- "master's degree"
+```
+
+
+## Anexo 3: PLS-DA ##
+### Preprocesado ###
+```{r}
+library(readxl)
+#datos1 = read.table("C:\\Users\\ASUS\\Desktop\\MDP I\\DATOS\\StudentsPerformance.txt")
+setwd("C:\\Users\\lucia\\OneDrive\\Escritorio\\MDP I\\Trabajo")
+#getwd()
+datos1 = read.table("StudentsPerformance.txt")
+datos2 = datos1[,-c(3,5,7,9,11,13,15)]
+datos = datos2[-1,]
+
+colnames(datos) = c('gender','race','parental level of education','lunch','test preparation course','math score', 'reading score', 'writing score')
+
+v = c(1:1000)
+rownames(datos) = v
+
+levels(datos$gender)[2] = NA
+levels(datos$gender)[1] = 'female'
+levels(datos$gender)[2] = 'male'
+levels(datos$race)[6] = NA
+levels(datos$`parental level of education`)[5] = NA
+levels(datos$lunch)[2] = NA
+levels(datos$`test preparation course`)[3] = NA
+datos$`math score`=as.integer(datos$`math score`)
+datos$`reading score`=as.integer(datos$`reading score`)
+datos$`writing score`=as.integer(datos$`writing score`)
+
+
+datos$gender=as.character(datos$gender)
+datos$gender[datos$gender == "female"] <- "1"
+datos$gender[datos$gender == "male"] <- "0"
+datos$gender = as.numeric(datos$gender)
+
+datos$race = as.character((datos$'race'))
+datos$race[datos$race=='group A'] <- '1'
+datos$race[datos$race=='group B'] <- '2'
+datos$race[datos$race=='group C'] <- '3'
+datos$race[datos$race=='group D'] <- '4'
+datos$race[datos$race=='group E'] <- '5'
+datos$race = as.numeric(datos$race)
+
+datos$'parental level of education' = as.character((datos$'parental level of education'))
+datos$'parental level of education'[datos$'parental level of education'=='some high school'] <- '1'
+datos$'parental level of education'[datos$'parental level of education'=='high school'] <- '2'
+datos$'parental level of education'[datos$'parental level of education'=="associate's degree"] <- '3'
+datos$'parental level of education'[datos$'parental level of education'=='some college'] <- '4'
+datos$'parental level of education'[datos$'parental level of education'=="bachelor's degree"] <- '5'
+datos$'parental level of education'[datos$"parental level of education"=="master's degree"] <- '6'
+datos$`parental level of education` = as.numeric(datos$`parental level of education`)
+
+datos$lunch = as.character((datos$'lunch'))
+datos$lunch[datos$lunch=="standard"] <- '1'
+datos$lunch[datos$lunch=="free/reduced"] <- '0'
+datos$lunch = as.numeric(datos$lunch)
+
+datos$`test preparation course` = as.character((datos$`test preparation course`))
+datos$`test preparation course`[datos$`test preparation course` == "completed"] <- '1'
+datos$`test preparation course`[datos$`test preparation course` == "none"] <- '0'
+datos$`test preparation course` = as.numeric(datos$`test preparation course`)
+datos$Cluster = cluster$clustering
+datos$Cluster[datos$Cluster == "1"] = "Cluster 1"
+datos$Cluster[datos$Cluster == "2"] = "Cluster 2"
+```
+
+### Validación del modelo ###
+#### SCR ####
+```{r}
+myT = myplsda@scoreMN
+myP = myplsda@loadingMN
+myE = scale(x) - myT%*%t(myP) 
+mydist = rowSums(myE^2)
+plot(1:length(mydist), sqrt(mydist), type = "l", main = "SPE", 
+     ylab = "d", xlab = "aceites", ylim = c(0,5))
+g = var(mydist)/(2*mean(mydist))
+h = (2*mean(mydist)^2)/var(mydist)
+chi2lim = qchisq(0.95, df = h, ncp = g); sqrt(chi2lim)
+abline(h = sqrt(chi2lim), col = 2, lty = 2)
+
+```
+
+La suma de cuadrados residual tiene los resultados esperados. En este caso, hemos eliminado del modelo a todos aquellos individuos con esta suma de cuadrados alta y se puede ver que apenas hay 10 individuos que sobrepasan la línea del percentil 95. Nada nuevo respecto de PCA.
+#### T2 ####
+```{r warning=FALSE}
+plot(x = myplsda, typeVc = "x-score",
+     parAsColFcVn = as.factor(y), parCexN = 0.8, parCompVi = c(1, 2),
+     parEllipsesL = TRUE, parLabVc = rownames(x), parPaletteVc = NA,
+     parTitleL = TRUE, parCexMetricN = NA, plotPhenoDataC = NA,
+     plotSubC = NA, fig.pdfC = NA, file.pdfC = NULL)
+```
+
+Para el gráfico de la suma de scores tipificados observamos que para ambos clústers muy pocos individuos se salen de la elipse de confianza establecida por el estadístico T2. Hemos de matizar que los individuos del clúster 1 poseen una variabilidad mejor explicada por el modelo que la de los individuos del conglomerado 2, que presentan mayor número de individuos extremos y por tanto, algunos más en comparación al primer grupo.
+En rasgos generales, es seguro afirmar que nuestro modelo PLS-DA ajusta y explica una adecuada cantidad de datos.
+
+#### VIP ####
+```{r}
+par(mar=c(11,4,5,2))
+barplot(myplsda@vipVn, main = "VIP", las=2)
+abline(h = 1, col = 2, lty = 2)
+```
+
+En el caso del VIP, no vemos cambios en cuanto al PCA ya que en este, las variables que más influían en la elección de las componentes eran las 3 notas. En el PCA, la primera componente explicaba principalmente las 3 notas mientras que la segunda explicaba una gran variablilidad de las notas obtenidas en matemáticas. Debido a que la primera dimensión siempre es la que más variabilidad explica, por ello, son las 3 variables las que tienen el VIP superior.
