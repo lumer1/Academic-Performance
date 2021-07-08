@@ -1,6 +1,6 @@
 ---
-title: "TRABAJO PRÁCTICO 2"
-author: "NORA HAFIDI y LUCÍA INÉS MERLO"
+title: "Proyecto"
+
 date: "31/5/2020"
 output:
   html_document: default
